@@ -74,6 +74,19 @@ describe("Scout context", () => {
     expect(exchange.content).toContain("second");
   });
 
+  test("falls back to getBranch when context-entry projection is unavailable", () => {
+    const built = buildScoutManifest(
+      asExtensionContext({
+        sessionManager: { getBranch: () => [user("u1", "request")] },
+      })
+    );
+
+    expect(built.ok).toBe(true);
+    if (built.ok) {
+      expect(built.manifest.groups[0]?.content).toContain("request");
+    }
+  });
+
   test("rejects duplicate calls and adjacent unknown tool results", () => {
     for (const entries of [
       [

@@ -44,7 +44,6 @@ const contextFor = (cwd: string, faux: any, entries: object[]) =>
       getApiKeyAndHeaders: () => Promise.resolve({ apiKey: "key", ok: true }),
     },
     sessionManager: {
-      buildContextEntries: () => entries,
       getBranch: () => entries,
     },
   });

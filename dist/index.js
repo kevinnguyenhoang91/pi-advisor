@@ -2403,6 +2403,12 @@ var detectImageFormat = (bytes) => {
   }
 };
 
+// src/session-context.ts
+var sessionContextEntries = (ctx) => {
+  const sessionManager = ctx.sessionManager;
+  return sessionManager.buildContextEntries?.() ?? sessionManager.getBranch();
+};
+
 // src/images.ts
 var ADVISOR_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
 var ADVISOR_IMAGES_TOTAL_MAX_BYTES = 8 * 1024 * 1024;
@@ -2465,7 +2471,7 @@ var selectedConversationImages = (ctx, conversation, policies, selectedEntryIds,
   if (!conversation) {
     return { imagePartsSeen: 0, selected: [] };
   }
-  const entries = selectedEntryIds ? ctx.sessionManager.buildContextEntries() : ctx.sessionManager.getBranch();
+  const entries = selectedEntryIds ? sessionContextEntries(ctx) : ctx.sessionManager.getBranch();
   const images = [];
   const seen = new Set;
   let imagePartsSeen = 0;
@@ -3245,7 +3251,7 @@ var fitToBudget = (built, caps) => {
   };
 };
 var buildScoutManifest = (ctx, options = {}) => {
-  const entries = ctx.sessionManager.buildContextEntries();
+  const entries = sessionContextEntries(ctx);
   const caps = resolveCaps(options);
   const indexed = indexToolCalls(entries);
   if (!indexed.ok) {
