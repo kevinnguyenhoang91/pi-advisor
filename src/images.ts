@@ -121,16 +121,15 @@ export const selectedConversationImages = (
   if (!conversation) {
     return { imagePartsSeen: 0, selected: [] };
   }
-  const entries = selectedEntryIds
-    ? sessionContextEntries(ctx)
-    : ctx.sessionManager.getBranch();
+  const entries = sessionContextEntries(ctx);
   const images: SelectedImage[] = [];
   const seen = new Set<string>();
   let imagePartsSeen = 0;
   for (const [index, entry] of entries.entries()) {
     if (
       entry.type !== "message" ||
-      (selectedEntryIds && !selectedEntryIds.has(entry.id ?? String(index)))
+      (selectedEntryIds !== undefined &&
+        !selectedEntryIds.has(entry.id ?? String(index)))
     ) {
       continue;
     }

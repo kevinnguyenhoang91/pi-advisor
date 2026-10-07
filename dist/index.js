@@ -2404,9 +2404,32 @@ var detectImageFormat = (bytes) => {
 };
 
 // src/session-context.ts
+var projectBranch = (source) => {
+  const resetBoundaryIndex = source.findLastIndex((entry) => Object.is(entry.type, "reset_boundary"));
+  const branch = source.slice(resetBoundaryIndex + 1);
+  const compactionIndex = branch.findLastIndex((entry) => entry.type === "compaction");
+  if (compactionIndex === -1) {
+    return branch;
+  }
+  const compaction = branch[compactionIndex];
+  if (compaction.type !== "compaction") {
+    return branch;
+  }
+  const firstKeptIndex = branch.findIndex((entry, index) => index < compactionIndex && entry.id === compaction.firstKeptEntryId);
+  const projected = [compaction];
+  if (firstKeptIndex !== -1) {
+    for (let index = firstKeptIndex;index < compactionIndex; index += 1) {
+      const entry = branch[index];
+      if (entry.type !== "compaction" && !(entry.type === "message" && entry.message.role === "system")) {
+        projected.push(entry);
+      }
+    }
+  }
+  return [...projected, ...branch.slice(compactionIndex + 1)];
+};
 var sessionContextEntries = (ctx) => {
   const sessionManager = ctx.sessionManager;
-  return sessionManager.buildContextEntries?.() ?? sessionManager.getBranch();
+  return sessionManager.buildContextEntries ? sessionManager.buildContextEntries() : projectBranch(sessionManager.getBranch());
 };
 
 // src/images.ts
@@ -2471,12 +2494,12 @@ var selectedConversationImages = (ctx, conversation, policies, selectedEntryIds,
   if (!conversation) {
     return { imagePartsSeen: 0, selected: [] };
   }
-  const entries = selectedEntryIds ? sessionContextEntries(ctx) : ctx.sessionManager.getBranch();
+  const entries = sessionContextEntries(ctx);
   const images = [];
   const seen = new Set;
   let imagePartsSeen = 0;
   for (const [index, entry] of entries.entries()) {
-    if (entry.type !== "message" || selectedEntryIds && !selectedEntryIds.has(entry.id ?? String(index))) {
+    if (entry.type !== "message" || selectedEntryIds !== undefined && !selectedEntryIds.has(entry.id ?? String(index))) {
       continue;
     }
     const { message } = entry;
@@ -2838,7 +2861,7 @@ var recentConversation = (ctx, maxChars = 15000, toolResultMaxLines = advisorToo
   if (maxChars === 0) {
     return "";
   }
-  const entries = ctx.sessionManager.getBranch().map((entry) => conversationEntry(entry, toolResultMaxLines, toolResultMaxBytes, policies, redact, describeImages, imageNonce)).filter((entry) => entry !== undefined);
+  const entries = sessionContextEntries(ctx).map((entry) => conversationEntry(entry, toolResultMaxLines, toolResultMaxBytes, policies, redact, describeImages, imageNonce)).filter((entry) => entry !== undefined);
   return selectRecentEntries(entries, maxChars);
 };
 
