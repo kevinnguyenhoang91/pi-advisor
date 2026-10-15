@@ -316,13 +316,14 @@ var splitRef = (ref) => {
 
 // src/child-session.ts
 var isMarkedSubagent = () => process.env.PI_SUBAGENT_CHILD === "1";
+var followsSessionExecutor = () => isMarkedSubagent() || !executorRef;
 var effectiveExecutorRef = (ctx) => {
-  if (isMarkedSubagent() && ctx.model) {
+  if (followsSessionExecutor() && ctx.model) {
     return `${ctx.model.provider}/${ctx.model.id}`;
   }
   return executorRef;
 };
-var effectiveExecutorEffort = (ctx) => isMarkedSubagent() ? ctx.thinkingLevel : executorEffortRef;
+var effectiveExecutorEffort = (ctx) => isMarkedSubagent() || !(executorRef || executorEffortRef) ? ctx.thinkingLevel : executorEffortRef;
 
 // src/content-utils.ts
 var isRecord = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -1342,8 +1343,8 @@ var getExplicitModelError = (ctx, ref, label, overridden, availableRefs) => {
   }
 };
 var planActivationModels = (ctx, executor, advisor, pendingExecutorRef, persisted, executorOverride, advisorOverride, availableRefs) => {
-  const pendingExecutor = !executorOverride && pendingExecutorRef && isSelectableModel(ctx, pendingExecutorRef, availableRefs) ? pendingExecutorRef : undefined;
-  const executorConfigured = executorOverride || Boolean(pendingExecutor) || Boolean(persisted.executor && isSelectableModel(ctx, executor, availableRefs));
+  const pendingExecutor = !executorOverride && persisted.executor && pendingExecutorRef && isSelectableModel(ctx, pendingExecutorRef, availableRefs) ? pendingExecutorRef : undefined;
+  const executorConfigured = executorOverride || Boolean(pendingExecutor) || !persisted.executor || isSelectableModel(ctx, executor, availableRefs);
   const advisorConfigured = advisorOverride || Boolean(persisted.advisor && isSelectableModel(ctx, advisor, availableRefs));
   return {
     pendingExecutor,
@@ -1551,6 +1552,7 @@ class SearchableModelSelector extends ModelSelectorAdapter {
 
 // src/ui/types.ts
 var FALLBACK_ADVISOR_MODEL_DISABLED = "Disabled (no fallback)";
+var EXECUTOR_FOLLOWS_SESSION_MODEL = "Current session model (no override)";
 
 // src/commands/model-picker.ts
 var selectAdvisorModels = async (ctx, options) => {
@@ -1574,8 +1576,8 @@ var selectAdvisorModels = async (ctx, options) => {
   } = options;
   if (options.selectExecutor) {
     const selectedExecutor = await ctx.ui.custom((tui, theme, keybindings, done) => new SearchableModelSelector({
-      allOptions,
-      currentOption: executor || undefined,
+      allOptions: [EXECUTOR_FOLLOWS_SESSION_MODEL, ...allOptions],
+      currentOption: executor || EXECUTOR_FOLLOWS_SESSION_MODEL,
       keybindings,
       onCancel: () => done(undefined),
       onSelect: done,
@@ -1590,7 +1592,7 @@ var selectAdvisorModels = async (ctx, options) => {
     if (!selectedExecutorEffort) {
       return;
     }
-    executor = selectedExecutor;
+    executor = selectedExecutor === EXECUTOR_FOLLOWS_SESSION_MODEL ? "" : selectedExecutor;
     executorEffort = selectedEffort(selectedExecutorEffort);
   }
   if (options.selectAdvisor) {
@@ -1634,14 +1636,14 @@ var selectAdvisorModels = async (ctx, options) => {
     return;
   }
   advisorFallbackModel = selectedFallback === FALLBACK_ADVISOR_MODEL_DISABLED ? undefined : selectedFallback;
-  if (!(advisor && executor)) {
+  if (!advisor) {
     return;
   }
   return {
     advisor,
     advisorEffort,
     advisorFallbackModel,
-    executor,
+    executor: executor ?? "",
     executorEffort
   };
 };
@@ -3849,7 +3851,7 @@ var curateAdvisorConversation = async (ctx, legacyConversation, signal, onScout,
         omittedBeforeScout: 0,
         selectedCount: 0
       },
-      model: executorRef,
+      model: effectiveExecutorRef(ctx),
       ok: false
     };
     onScout?.({ outcome: scout, type: "fallback" });
@@ -5448,11 +5450,9 @@ var resolveActivationModels = async (runtime, ctx, canContinue) => {
   if (!canContinue()) {
     return { cancelled: true };
   }
-  const executor = findConfiguredModel(ctx, executorRef);
-  if (!executor) {
-    return {
-      error: executorRef ? `Executor model not found: ${executorRef}` : "Executor model not configured"
-    };
+  const executor = executorRef ? findConfiguredModel(ctx, executorRef) : undefined;
+  if (executorRef && !executor) {
+    return { error: `Executor model not found: ${executorRef}` };
   }
   const advisor = findConfiguredModel(ctx, advisorRef);
   if (!advisor) {
@@ -5467,7 +5467,7 @@ var resolveActivationModels = async (runtime, ctx, canContinue) => {
   if (!(advisorAuth.ok && advisorAuth.apiKey)) {
     return { error: `No API key for Advisor ${advisorRef}` };
   }
-  if (!isMarkedSubagent() && !await runtime.setExecutorModel(executor)) {
+  if (executor && !isMarkedSubagent() && !await runtime.setExecutorModel(executor)) {
     return { error: `No API key for Executor ${executorRef}` };
   }
   return {};
@@ -5571,7 +5571,7 @@ var activateAdvisor = async (runtime, args, ctx, announce = true) => {
     runtime.pi.setThinkingLevel(executorEffortRef);
   }
   setAdvisorToolsActive(runtime.pi, true);
-  const activeModel = isMarkedSubagent() ? ctx.model : findConfiguredModel(ctx, executorRef);
+  const activeModel = followsSessionExecutor() ? ctx.model : findConfiguredModel(ctx, executorRef);
   runtime.updateSameModelNotice(ctx, activeModel);
   if (announce) {
     const activeExecutorRef = effectiveExecutorRef(ctx);
@@ -5614,6 +5614,9 @@ var registerCommandLifecycle = (runtime, activateAdvisor) => {
       return;
     }
     const selected = `${event.model.provider}/${event.model.id}`;
+    if (!getPersistedModelRefs().executor) {
+      return;
+    }
     if (!runtime.flowEnabled()) {
       runtime.pendingExecutorModelRef = selected;
       return;

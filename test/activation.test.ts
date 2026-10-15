@@ -52,6 +52,7 @@ const typingSelectorUi = (
     onOpen?: () => void;
     onValue?: (value: string | undefined) => void;
     search?: string;
+    searchAt?: number;
   } = {}
 ) => {
   let customCall = 0;
@@ -72,7 +73,7 @@ const typingSelectorUi = (
         options.onOpen?.();
         selector.render(100);
 
-        if (customCall === 1 && options.search) {
+        if (customCall === (options.searchAt ?? 1) && options.search) {
           for (const character of options.search) {
             selector.handleInput(character);
           }
@@ -133,14 +134,11 @@ describe("Advisor activation flow", () => {
       await commands.get("advisor-models").handler("", ctx);
       expect(savedConfig(agentDir)).toMatchObject({
         advisor: "provider/advisor",
-        executor: "provider/executor",
       });
+      expect(savedConfig(agentDir)).not.toHaveProperty("executor");
 
       await commands.get("advisor").handler("", ctx);
-      expect(selectedModel).toMatchObject({
-        id: "executor",
-        provider: "provider",
-      });
+      expect(selectedModel).toBeUndefined();
       expect(activeTools).toContain("ask_advisor");
     });
   });
@@ -171,6 +169,7 @@ describe("Advisor activation flow", () => {
               }
             },
             search: "chosen-advisor",
+            searchAt: 0,
           }),
           notify: (message: string) => notices.push(message),
         },
@@ -180,14 +179,13 @@ describe("Advisor activation flow", () => {
       await commands.get("advisor").handler("", ctx);
 
       expect(selectedModels).toEqual([
-        "provider/chosen-executor",
         "provider/chosen-advisor",
         "Disabled (no fallback)",
       ]);
       expect(savedConfig(agentDir)).toMatchObject({
         advisor: "provider/chosen-advisor",
-        executor: "provider/chosen-executor",
       });
+      expect(savedConfig(agentDir)).not.toHaveProperty("executor");
       expect(pi.getActiveTools()).toContain("ask_advisor");
 
       const explanation = notices.find((message) =>

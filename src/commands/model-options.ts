@@ -184,6 +184,7 @@ export const planActivationModels = (
 ): ActivationModelPlan => {
   const pendingExecutor =
     !executorOverride &&
+    persisted.executor &&
     pendingExecutorRef &&
     isSelectableModel(ctx, pendingExecutorRef, availableRefs)
       ? pendingExecutorRef
@@ -192,9 +193,8 @@ export const planActivationModels = (
   const executorConfigured =
     executorOverride ||
     Boolean(pendingExecutor) ||
-    Boolean(
-      persisted.executor && isSelectableModel(ctx, executor, availableRefs)
-    );
+    !persisted.executor ||
+    isSelectableModel(ctx, executor, availableRefs);
 
   const advisorConfigured =
     advisorOverride ||

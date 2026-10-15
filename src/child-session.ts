@@ -4,8 +4,10 @@ import { executorEffortRef, executorRef } from "./config/state.ts";
 
 export const isMarkedSubagent = () => process.env.PI_SUBAGENT_CHILD === "1";
 
+export const followsSessionExecutor = () => isMarkedSubagent() || !executorRef;
+
 export const effectiveExecutorRef = (ctx: ExtensionContext) => {
-  if (isMarkedSubagent() && ctx.model) {
+  if (followsSessionExecutor() && ctx.model) {
     return `${ctx.model.provider}/${ctx.model.id}`;
   }
 
@@ -13,4 +15,6 @@ export const effectiveExecutorRef = (ctx: ExtensionContext) => {
 };
 
 export const effectiveExecutorEffort = (ctx: ExtensionContext) =>
-  isMarkedSubagent() ? ctx.thinkingLevel : executorEffortRef;
+  isMarkedSubagent() || !(executorRef || executorEffortRef)
+    ? ctx.thinkingLevel
+    : executorEffortRef;

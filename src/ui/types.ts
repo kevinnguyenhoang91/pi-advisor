@@ -74,6 +74,9 @@ export interface ContextPreset {
 
 export const FALLBACK_ADVISOR_MODEL_DISABLED = "Disabled (no fallback)";
 
+export const EXECUTOR_FOLLOWS_SESSION_MODEL =
+  "Current session model (no override)";
+
 export interface AdvisorSettings {
   advisorToolsEnabled?: boolean;
   agentsMdContext?: boolean;

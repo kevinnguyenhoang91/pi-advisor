@@ -1,7 +1,10 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { SearchableModelSelector } from "../ui/model-selector.ts";
-import { FALLBACK_ADVISOR_MODEL_DISABLED } from "../ui/types.ts";
+import {
+  EXECUTOR_FOLLOWS_SESSION_MODEL,
+  FALLBACK_ADVISOR_MODEL_DISABLED,
+} from "../ui/types.ts";
 import {
   effortChoices,
   getAvailableModelRefs,
@@ -66,8 +69,8 @@ export const selectAdvisorModels = async (
     const selectedExecutor = await ctx.ui.custom<string | undefined>(
       (tui, theme, keybindings, done) =>
         new SearchableModelSelector({
-          allOptions,
-          currentOption: executor || undefined,
+          allOptions: [EXECUTOR_FOLLOWS_SESSION_MODEL, ...allOptions],
+          currentOption: executor || EXECUTOR_FOLLOWS_SESSION_MODEL,
           keybindings,
           onCancel: () => done(undefined),
           onSelect: done,
@@ -90,7 +93,10 @@ export const selectAdvisorModels = async (
       return undefined;
     }
 
-    executor = selectedExecutor;
+    executor =
+      selectedExecutor === EXECUTOR_FOLLOWS_SESSION_MODEL
+        ? ""
+        : selectedExecutor;
     executorEffort = selectedEffort(selectedExecutorEffort);
   }
 
@@ -155,7 +161,7 @@ export const selectAdvisorModels = async (
       ? undefined
       : selectedFallback;
 
-  if (!(advisor && executor)) {
+  if (!advisor) {
     return undefined;
   }
 
@@ -163,7 +169,7 @@ export const selectAdvisorModels = async (
     advisor,
     advisorEffort,
     advisorFallbackModel,
-    executor,
+    executor: executor ?? "",
     executorEffort,
   };
 };

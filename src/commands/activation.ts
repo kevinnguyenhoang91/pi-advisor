@@ -3,6 +3,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
   effectiveExecutorEffort,
   effectiveExecutorRef,
+  followsSessionExecutor,
   isMarkedSubagent,
 } from "../child-session.ts";
 import { parseArgs } from "../config/args.ts";
@@ -45,14 +46,12 @@ const resolveActivationModels = async (
     return { cancelled: true };
   }
 
-  const executor = findConfiguredModel(ctx, executorRef);
+  const executor = executorRef
+    ? findConfiguredModel(ctx, executorRef)
+    : undefined;
 
-  if (!executor) {
-    return {
-      error: executorRef
-        ? `Executor model not found: ${executorRef}`
-        : "Executor model not configured",
-    };
+  if (executorRef && !executor) {
+    return { error: `Executor model not found: ${executorRef}` };
   }
 
   const advisor = findConfiguredModel(ctx, advisorRef);
@@ -75,7 +74,11 @@ const resolveActivationModels = async (
     return { error: `No API key for Advisor ${advisorRef}` };
   }
 
-  if (!isMarkedSubagent() && !(await runtime.setExecutorModel(executor))) {
+  if (
+    executor &&
+    !isMarkedSubagent() &&
+    !(await runtime.setExecutorModel(executor))
+  ) {
     return { error: `No API key for Executor ${executorRef}` };
   }
 
@@ -260,7 +263,7 @@ export const activateAdvisor = async (
 
   setAdvisorToolsActive(runtime.pi, true);
 
-  const activeModel = isMarkedSubagent()
+  const activeModel = followsSessionExecutor()
     ? ctx.model
     : findConfiguredModel(ctx, executorRef);
 

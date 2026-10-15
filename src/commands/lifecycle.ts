@@ -70,6 +70,10 @@ export const registerCommandLifecycle = (
 
     const selected = `${event.model.provider}/${event.model.id}`;
 
+    if (!getPersistedModelRefs().executor) {
+      return;
+    }
+
     if (!runtime.flowEnabled()) {
       // Defer persistence until `/advisor` succeeds. This keeps ordinary model
       // selection global defaults untouched when the flow is not enabled.
