@@ -57,6 +57,7 @@ const idleSignal = () => new AbortController().signal;
 interface Harness {
   consultCount: () => number;
   registration: JevTurnGateRegistration;
+  sendOptions: ({ triggerTurn: boolean } | undefined)[];
   sent: { content: string; customType: string; details: unknown }[];
   session: AdvisorSessionState;
 }
@@ -70,6 +71,7 @@ const harness = (
 ): Harness => {
   const session = new AdvisorSessionState();
   const sent: Harness["sent"] = [];
+  const sendOptions: Harness["sendOptions"] = [];
   let consults = 0;
 
   const registration: JevTurnGateRegistration = {
@@ -92,11 +94,20 @@ const harness = (
       fetch,
       resolveTransport: () => Promise.resolve(credentials),
     },
-    send: (message) => sent.push(message),
+    send: (message, sendOpts) => {
+      sent.push(message);
+      sendOptions.push(sendOpts);
+    },
     session,
   };
 
-  return { consultCount: () => consults, registration, sent, session };
+  return {
+    consultCount: () => consults,
+    registration,
+    sendOptions,
+    sent,
+    session,
+  };
 };
 
 const ctxWith = (notifications: string[] = []) =>
@@ -143,6 +154,35 @@ describe("handleJevTurnEnd", () => {
       "advisor-turn-gate-call",
       "advisor-turn-gate-result",
     ]);
+  });
+
+  test("triggers a turn for the result so the session keeps going", async () => {
+    const h = harness(systemOneMock([noulResponse(0.9)]).fetch);
+    await turn(h);
+    await turn(h);
+
+    expect(h.sendOptions).toEqual([undefined, { triggerTurn: true }]);
+  });
+
+  test("does not trigger a turn in print mode", async () => {
+    const h = harness(systemOneMock([noulResponse(0.9)]).fetch);
+
+    const printCtx = asExtensionContext({
+      cwd: "/",
+      hasUI: false,
+      isProjectTrusted: () => false,
+      mode: "print",
+      sessionManager: {
+        getBranch: () => branchFromLines([["user", "Do the work."]]),
+      },
+      signal: idleSignal(),
+      ui: { notify: () => {}, setStatus: () => {} },
+    });
+
+    await turn(h, printCtx);
+    await turn(h, printCtx);
+
+    expect(h.sendOptions).toEqual([undefined, { triggerTurn: false }]);
   });
 
   test("applies the configured threshold to Decisions and fail-opens refusal", async () => {

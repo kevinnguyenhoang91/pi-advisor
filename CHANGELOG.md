@@ -10,6 +10,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - The Executor now follows the model and thinking level of the current Pi session by default. `/advisor` no longer asks for or switches to an Executor model, and `/model` selections are not saved as the Executor. Pick an explicit Executor in `/advisor-models`, via `executor=` on `/advisor`, or in `advisor.json` to pin one; choose **Current session model** in `/advisor-models` to return to following the session.
 
+### Fixed
+
+- Proactive Advisor turn reviews no longer leave the session stopped after the Advisor posts its notes; the Executor now resumes with the review automatically instead of waiting for you to continue manually.
+
 ## 0.13.2 - 2026-10-14
 
 ### Changed

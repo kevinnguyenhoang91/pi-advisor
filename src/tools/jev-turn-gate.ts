@@ -58,12 +58,15 @@ export interface JevTurnGateRegistration {
   consult: typeof consultAdvisor;
   deps?: JevTurnGateDeps;
   herdrActivity?: HerdrAdvisorActivityScope;
-  send: (message: {
-    content: string;
-    customType: string;
-    details: TurnGateCallDetails | TurnGateResultDetails;
-    display: boolean;
-  }) => void;
+  send: (
+    message: {
+      content: string;
+      customType: string;
+      details: TurnGateCallDetails | TurnGateResultDetails;
+      display: boolean;
+    },
+    options?: { triggerTurn: boolean }
+  ) => void;
   session: AdvisorSessionState;
 }
 
@@ -198,17 +201,20 @@ export const handleJevTurnEnd = async (
         usage: consulted.usage,
       });
       updateAdvisorUsageStatus(ctx, session);
-      registration.send({
-        content: consulted.markdown,
-        customType: "advisor-turn-gate-result",
-        details: {
-          advisor: consulted.model,
-          agentRulesBytes: consulted.agentRulesBytes,
-          text: consulted.markdown,
-          usage: consulted.usage,
+      registration.send(
+        {
+          content: consulted.markdown,
+          customType: "advisor-turn-gate-result",
+          details: {
+            advisor: consulted.model,
+            agentRulesBytes: consulted.agentRulesBytes,
+            text: consulted.markdown,
+            usage: consulted.usage,
+          },
+          display: true,
         },
-        display: true,
-      });
+        { triggerTurn: ctx.mode !== "print" }
+      );
     } finally {
       finishHerdrActivity();
     }

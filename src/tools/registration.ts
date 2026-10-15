@@ -45,7 +45,8 @@ export const registerAdvisorTool = (
     activeTools: () => pi.getActiveTools(),
     consult: registration.consult,
     herdrActivity: registration.herdrActivity,
-    send: (message) => pi.sendMessage(message, { deliverAs: "steer" }),
+    send: (message, options) =>
+      pi.sendMessage(message, { deliverAs: "steer", ...options }),
     session,
   };
 
