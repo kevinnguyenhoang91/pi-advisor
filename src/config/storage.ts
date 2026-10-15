@@ -290,6 +290,10 @@ export const saveConfig = (
 
   loadedConfigState = nextLoadedState;
   loadedConfigPath = path;
+  setPersistedModelRefs(
+    configuredModelRef(nextLoadedState.advisor),
+    configuredModelRef(nextLoadedState.executor)
+  );
 
   return path;
 };

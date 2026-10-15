@@ -1185,6 +1185,7 @@ var saveConfig = (_ctx, options = {}) => {
   }
   loadedConfigState = nextLoadedState;
   loadedConfigPath = path;
+  setPersistedModelRefs(configuredModelRef(nextLoadedState.advisor), configuredModelRef(nextLoadedState.executor));
   return path;
 };
 var saveGlobalOutcomeLogging = (enabled) => {
